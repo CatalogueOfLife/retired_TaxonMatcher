@@ -1,0 +1,16 @@
+# TaxonFixer.list
+# ---------------
+# Taxon Fixer taxon list file
+# Note that this file is executed, and must therefore contain valid Perl syntax
+# (It is also a security risk - do not let anyone add arbitrary code to this file)
+# (To be replaced by a proper Perl config file package)
+
+# Version for Luvie's production run
+
+# Name of file for logging (this over-rides the name given in TaxonMatcher.config)
+$logFileName=     "TaxonFixer.log";
+
+# List of taxon names whose LSIDs are to be re-created (Luvie's list):
+@taxa= ("Axiidae", "Spengelidae", "Tethyidae", "Gigaspermaceae", "Cepheidae");
+
+# End of TaxonFixer.list
