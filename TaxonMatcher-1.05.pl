@@ -1,7 +1,7 @@
 #!/usr/local/bin/perl -w
 
 $programName=  "Taxon Matcher";
-$programVersion=  "1.03, 23 February 2009";
+$programVersion=  "1.05, 1 July 2010";
 
 # Compare taxa in two editions of the Catalogue of Life Annual Checklist
 # and allocate LSIDs to every taxon (concept) which does not have an LSID
@@ -32,6 +32,10 @@ $programVersion=  "1.03, 23 February 2009";
 # 18 February 2009  v. 1.00, additional LSID matching tests
 # 19 February 2009  v. 1.01, tried and failed to fix duplicated families bug
 # 23 February 2009  detect and remove leading, trailing and duplicated spaces
+# 25 January  2010  v. 1.04, edited for use with AC2010, 'alldata' no longer DEFAULT NULL
+#  1 February 2010  password no longer displayed, fixed bug in creating comparison db
+# 10 June     2010  v. 1.05, fixed problem with 'allData' not given a value
+#  1 July     2010  'edition' field 15 chars, 'lsid' field 87 chars for "col20100629[hhmm]" etc.
 
 print "\n$programName (version $programVersion)\n\n";
 
@@ -285,8 +289,9 @@ sub showResult # (limit)
 
 sub listMatches
 # List, for every GSD, the number of matched records and unmatched records
-# in the 2008 and 2009 databases
-{ doSQL($dbhCTL, "SELECT   count(*), $database[1].databases.database_name 
+# in the two database editions compared
+{ doSQL($dbhCTL, "USE $taxonList");
+  doSQL($dbhCTL, "SELECT   count(*), $database[1].databases.database_name 
                    FROM Taxon, $database[1].databases
                    WHERE databaseId = $database[1].databases.record_id
                    GROUP BY databaseId;");
@@ -315,8 +320,9 @@ sub showOptions
 { printAndLogEntry("Current options:");
   printAndLog("                 user: $user");
   printAndLog("                   OS: $OS");
+  printAndLog("               driver: $driver");
   printAndLog("               server: $server");
-  printAndLog("                 user: $userName, password: $password");    
+  printAndLog("                 user: $userName");    
   printAndLog("     import databases: $databaseImport1, $databaseImport2");    
   printAndLog("Cumulative Taxon List: $taxonList");    
   printAndLog("         logging file: $logFileName, will "
@@ -551,7 +557,7 @@ sub importAC
   # reluctant to add a corresponding index to, say, common_names.name_code
   # because it would involve an invasive change to the AC database)  
   doSQL($dbhCTL, "CREATE TABLE IF NOT EXISTS Taxon
-                (edition      VARCHAR(6) NOT NULL DEFAULT '',
+                (edition      VARCHAR(15) NOT NULL DEFAULT '',
                  edRecordId   INT(10) UNSIGNED NOT NULL,
 		 databaseId   INT(10) UNSIGNED,
 		 code         VARCHAR(137) NOT NULL DEFAULT '',
@@ -562,7 +568,7 @@ sub importAC
 		 commonNames  TEXT,
 		 distribution TEXT,
 		 otherData    TEXT,
-		 allData      TEXT NOT NULL DEFAULT '',
+		 allData      TEXT, /* was NOT NULL in v.1.04, was DEFAULT '' in v.1.03 */
 		 INDEX        (edition),
 		 INDEX        (edRecordId),
 		 INDEX        (code),
@@ -618,7 +624,7 @@ sub importAC
   doSQL($dbhCTL, "DROP TABLE IF EXISTS CommonName;");
   doSQL($dbhCTL, 
         "CREATE TABLE CommonName
-          (edition     VARCHAR(6) NOT NULL DEFAULT '',
+          (edition     VARCHAR(15) NOT NULL DEFAULT '',
            code        VARCHAR(137) NOT NULL DEFAULT '',
            commonNames TEXT,
            INDEX (code))
@@ -756,10 +762,11 @@ sub importAC
   printAndLogEntry("Combining taxon data for later comparison");
   doSQL($dbhCTL, 
        "UPDATE Taxon
-	SET allData= REPLACE(CONCAT_WS('; ', 
+	SET allData= IFNULL(REPLACE(CONCAT_WS('; ', 
 			TRIM(sciNames), TRIM(commonNames), 
 			TRIM(distribution), TRIM(otherData)),
-			'  ', ' ');");
+			'  ', ' '), '');");
+	# Added the IFNULL(..., '') function in v.1.04
   print "\n";
 
   printAndLogEntry("Finished importing Annual Checklist taxon data from $db");
@@ -783,7 +790,7 @@ sub compareEditions
   # Philippines, running MySQL as a front end to MS Access or SQL Server: the Taxon table must 
   # use the MyISAM engine, as an INDEX on a TEXT field is supported only on the MyISAM table type.
   printAndLogEntry("Prepare table before comparing taxa in editions"); 
-  doSQL($dbhCTL, "ALTER TABLE Taxon ENGINE = MyISAM;");
+  doSQL($dbhCTL, "ALTER TABLE Taxon ENGINE = MyISAM;") if $user eq "Luvie";
   doSQL($dbhCTL, "ALTER TABLE Taxon ADD INDEX (allData(100));"); 
   doSQL($dbhCTL, "ALTER TABLE Taxon ENABLE KEYS;");
   doSQL($dbhCTL, "OPTIMIZE TABLE Taxon;");
@@ -857,17 +864,17 @@ STATLOOP:
 }
 
 sub addLSIDs
-# Add LSID values to the 2009 database
+# Add LSID values to the second (target) database (e.g. the 2010 database)
 { print "Add LSIDs to AC edition\n";
-  # Add the LSID field to the 2009 database
+  # Add the LSID field to the target database
+  doSQL($dbhCTL, "USE $database[1]");
   if ($lsidsPresent[1])
   { print "Import database $database[1] already contains LSID field\n";
   }
   else
   { printAndLogEntry("Create the lsid field in database $database[1]");
-    doSQL($dbhCTL, "USE $database[1]");
     doSQL($dbhCTL, 
-           "ALTER TABLE taxa ADD COLUMN lsid VARCHAR(78) AFTER `record_id`;");
+           "ALTER TABLE taxa ADD COLUMN lsid VARCHAR(87) AFTER `record_id`;");
     $lsidsPresent[1]= 1;
     print "\n";
   }
@@ -913,7 +920,7 @@ sub addLSIDs
 }
 
 sub removeLSIDs
-# Remove the LSID field from the 2009 database
+# Remove the LSID field from the second (target) database
 # (this is to allow it to be used with the old user interface)
 { if ($lsidsPresent[1])
   { printAndLogEntry("Remove the lsid field in database $database[1]");
