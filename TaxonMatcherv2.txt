@@ -1,0 +1,491 @@
+Setting up and using Taxon Matcher
+==================================
+TaxonMatcher.txt, formerly LSIDMatcherNotes.txt
+
+Richard J. White
+16 December 2008  notes on setting up an AC database from an SQL dump
+22 December 2008  notes on Taxon Matcher software environment
+23 December 2008  version 0.1
+ 5 January  2009  version 0.2
+12 January  2009  incorporated InstalledSoftware.txt and SetUpACDatabase.txt
+16 January  2009  version 0.30;  added notes for user running the program
+27 January  2009  notes on cases where a new LSID is unexpectedly issued
+ 9 February 2009  more notes for user
+11 February 2009  minor additions and corrections
+26 January  2010  minor edits, updates and clarifications for AC 2010
+
+Taxon Matcher is a program for comparing Catalogue of Life databases (initially, editions of the Annual Checklist) in order to allocate LSIDs to taxa.  It deals slightly differently with species-level taxa (species, subspecies and any other infra-specific taxa) and higher taxa at the genus level and above (subgenera are not stored as taxa in CoL).  
+
+Contents
+========
+
+These notes include the following sections:
+
+Introduction to running Taxon Matcher
+Annual Checklist databases
+Essential supporting software
+  Perl
+  ODBC driver (MySQL Connector/ODBC)
+Optional supporting software
+  Text editor
+  MySQL Query Browser
+  PuTTY
+Taxon Matcher Users' Guide
+  How to run the program
+  Main menu actions
+  Error messages and how to fix them
+  Notes
+Appendices
+  Appendix I:   Installing a MySQL database
+  Appendix II:  Recent changes in Taxon Matcher (out-of-date)
+  Appendix III: Taxon Matcher SQL commands (out-of-date)
+  Appendix IV:  Software installed on Frank's and Yuri's machines
+  
+Introduction to running Taxon Matcher
+-------------------------------------
+
+Taxon Matcher can be run on Windows or Linux PCs.  It is a database client program, and does not need to be run on the database server.  It can be run on any machine with local or remote access to copies of the Annual Checklist databases for data testing, taxon comparison and for LSID addition (see below).  It has not been tested on a Macintosh, but this should also be possible.
+
+The database server needs to have copies of two consecutive Annual Checklist databases, such as the 2009 and 2010 Annual Checklists.  Taxon Matcher will add LSIDs to the latter.  
+
+Annual Checklist databases
+==========================
+
+At least two versions of the Annual Checklist database are required.  These may be on any accessible MySQL server, such as biodiversity.cs.cf.ac.uk.  They must be final production versions, and all except the latest should contain a populated 'lsid' field in the 'taxa' table.  See Appendix I for instructions if you need to set these up.  See also the section on ODBC below for further preparatory steps required.  
+
+Note that at present Richard has set up the version 11 of the 2009 AC database and version 11 of the 2010 AC database on biodiversity.cs.cf.ac.uk, as described below, so this will not need to be done by Luvie or Yuri when testing Taxon Matcher.  However, Taxon Matcher can easily be told to use a different server, so Taxon Matcher can be run by Luvie with the very final database production version in the Philippines, or by Yuri or Richard with the final copy in Cardiff or Reading, before sending the database to ETI, or by ETI themselves. 
+
+Essential supporting software
+=============================
+
+The following information is provided on the software environment needed for running Taxon Matcher.  
+
+Perl
+----
+Taxon Matcher is written in Perl, therefore appropriate Perl run-time software needs to be installed on the local PC in order to run Taxon Matcher.  
+
+To test whether Perl has been installed, open a Command Prompt window and type 
+	perl -v 
+and press the Enter key.  If the response is 
+	'perl' is not recognized as an internal or external command, 
+	operable program or batch file.
+then Perl needs to be installed.  ActiveState Perl (ActivePerl) is recommended.  
+
+Go to:	http://www.activestate.com/Products/activeperl/
+Follow the "Download Now" link to download the latest version (the exact version used should not be critical, at the time of writing it was v.5.10.0.1004, in file ActivePerl-5.10.0.1004-MSWin32-x86-287188.msi)
+
+To install Perl, run the downloaded program, with default settings. 
+
+When Perl has been installed successfully, the command 
+	perl -v 
+should produce something similar to:
+	This is perl, v5.10.0 built for MSWin32-x86-multi-thread
+	(with 5 registered patches, see perl -V for more detail)
+followed by several more lines of information.  
+
+Documentation can be found via Start menu / All Programs / ActivePerl...  Perl can also be run from there (but for running Taxon Matcher as described below, there is no need to do this).   
+
+ODBC driver (MySQL Connector/ODBC)
+----------------------------------
+A Perl program needs a "driver" to connect to a MySQL database in order to manipulate it.  For a discussion of the Perl MySQL driver issues, see:  
+	http://dev.mysql.com/doc/refman/5.1/en/activestate-perl.html
+For the time being, I am avoiding the problem by using the MySQL ODBC connector, as follows, but eventually there may be an easier way.
+
+To see whether the MySQL ODBC connector is already installed, run the Microsoft Windows ODBC Data Source Administrator, which seems to be found in different places in different versions of Windows.  In Windows XP it's in
+	Start menu / Control Panel / Administrative Tools / Data sources (ODBC)
+If you are using Windows Server 2003, you may find it in
+	Start menu / All Programs / Administrative Tools / Data sources (ODBC)
+
+Click on the "System DSN" tab, then on the "Add" button.  If "MySQL ODBC 3.51 Driver" is listed, all is well ("SQL Server" is not what we need).  Otherwise, install it as follows:  
+
+Download MySQL ODBC connector, file mysql-connector-odbc-3.51.27-win32.msi from 
+	http://dev.mysql.com/downloads/connector/odbc/3.51.html
+Install it by running the downloaded program, with default settings.  Now the installation test above should reveal the presence of the "MySQL ODBC 3.51 Driver".  
+
+Configure the required database conections using the ODBC Data Source Administrator as follows:
+Click on the "System DSN" tab, then on the "Add" button.  Select the "MySQL ODBC 3.51 Driver" on the list, then click on "Finish" (bizarrely named, because this is the beginning of the process!)  
+In the "Login" tab in the window which appears, fill in the fields as follows:  
+
+	Data Source Name:	CoL2009AC (actually this can be whatever name you want, but it's least confusing if it's the same as the MySQL database name)
+	Description:	Annual Checklist 2009 (or whatever you want to say)
+	Server:	biodiversity.cs.cf.ac.uk (or any other server in Reading, Amsterdam, the Philippines, etc.)
+	User:		sp2000editor (your MySQL user name)
+	Password:	Or0bus (or your MySQL password)
+	Database:	CoL2009AC (the name of your MySQL database;  
+			you can choose from a drop-down list)
+
+Then click on the "Test" button, which should respond with a "Success" message, then click on "OK".  
+
+Repeat this procedure (click on the "Add" button again) to set up ODBC DSNs (data source names) for CoL2010AC (e.g. database col2010v11) and for CoLTTC (database CoLTTC, the combined comparison database).  
+
+You should end up with three "System Data Sources" listed.  Click "OK" to complete the configuration.  The Taxon Matcher program should now be able to connect to all three databases, as is required.  
+
+More information can be found at
+	http://dev.mysql.com/doc/refman/5.0/en/connector-odbc-configuration-dsn-windows.html
+	
+Optional supporting software
+============================
+
+Text editor
+-----------
+For changes to the Taxon Matcher configuration file, a text editor is needed.  It is also useful if minor changes to the Taxon Matcher program are to be made, for example to change the defaults and limit values.  
+
+Notepad or WordPad, which come with all recent versions of Windows, or any Linux editor, will suffice.  I prefer TextPad in Windows, and Kate in Linux:  both can be set to word-wrap and to display line numbers (which is useful as Perl error messages refer to line numbers), and can edit several files at the same time.  
+
+Unfortunately TextPad, currently v.5.2.0 from www.textpad.com, is not free, it is shareware;  I will try to find a decent free Windows editor in future.  TextPad 4.7.3 may have less aggressive reminders about paying up.  WordPad is probably a good alternative.  Do not use a word processor such as Microsoft Word as a text file editor, unless you know how to use it to save text files without extraneous formatting information.  
+
+MySQL Query Browser
+-------------------
+MySQL Query Browser is not needed for running Taxon Matcher, but is useful for manual exploration of the AC databases and the Taxon Matcher results using SQL queries.  The current version (on 21 December 2008) for MySQL 5.0 is MySQL Query Browser 1.2 and is included in the MySQL GUI Tools Bundle for 5.0 (and 5.1) (Version 5.0r12: the file date is 2 May 2007;  I downloaded my copy on 9 
+February 2008.)
+
+To download, go to http://dev.mysql.com/downloads/gui-tools/5.0.html where further instructions can be found.  Install according to the instructions at http://dev.mysql.com/doc/query-browser/en/index.html  When run, you'll find there is a Quickstart Guide available as one of the tabs on the main window.
+
+Notes on installation under Windows:  
+
+The MySQL GUI Tools Bundle (version 5.0-r15) can be downloaded as a Windows Installer file for Windows XP or later (mysql-gui-tools-5.0-r15-win32.msi), or as a Zip file for Windows 2000.
+
+Install by running the downloaded program, with default settings.  Run it from the Start menu / All Programs / MySQL / MySQL Query Browser  
+
+Notes on installation under Linux:  
+
+The MySQL GUI Tools Bundle can be downloaded in various RPM and TAR formats for different Linux distributions.  In brief, to install run
+	tar --directory=/opt -xzvf mysql-gui-tools-<version>.tar.gz
+
+Desktop shortcut files can be copied to the desktop from
+	/opt/mysql-gui-tools-<version>
+or icons can be found in
+	/opt/mysql-gui-tools-<version>/share/mysql-gui
+I haven't yet tried to create menu entries.
+
+Note:  I chose the "Generic x86 Linux TAR (bundled dependencies)" for my old Mandrake 9.2 installation on Allium.  The installed program would not run because of an unsatisfied dependency on libXinerama.so.1.  I downloaded a version from rpmfind.net (for "Mandriva 2007.0 for i586", the oldest that seemed to be listed) and as root ran
+	rpm -Uvh /backup/software/Linux/RPMs/libxinerama1-1.0.1-3mdv2007.0.i586.rpm
+Run from the desktop shortcut icon, or just run from the command line using
+	/opt/mysql-gui-tools-<version>/mysql-query-browser
+	
+PHPMyAdmin
+----------
+PHPMyAdmin is a popular web-based alternative client user interface for MySQL databases.  It could be used instead of MySQL Query Browser.  
+
+PuTTY
+-----
+PuTTY is a Windows SSH client for remote command-line access to servers, used by Richard for testing.  It is not needed for running Taxon Matcher.  If desired it a complete Windows Installer can be downloaded from the PuTTY Download Page at 
+	http://www.chiark.greenend.org.uk/~sgtatham/putty/
+It is installed by running the downloaded program, with default settings.  PuTTY can then be run from the Start menu / All Programs / PuTTY / PuTTY.  
+
+Taxon Matcher Users' Guide
+==========================
+
+How to run the program
+----------------------
+
+If running under Windows, before running Taxon Matcher for the first time, set up the ODBC data source names (DSNs) and check that Perl is installed and working, as described above.  
+
+At a Windows Command prompt window or Linux shell prompt, change to the drive and directory containing the TaxonMatcher-x.xx.pl program (where "x.xx" refers to the program version number).  Note that Taxon Matcher reads a configuration file called TaxonMatcher.config, in the same directory.  This can be used to set various default program options before starting the Taxon Matcher program.  
+
+Type the command 
+	perl TaxonMatcher-x.xx.pl
+and press the Enter key.  
+
+The program should display a few lines of text giving the program version and configuration details.  The program will then attempt to connect to all three databases.  If successful, the "Main menu" will be displayed, containing about ten alternative actions.  
+
+Main menu actions
+-----------------
+
+The actions are arranged in two columns, in approximate order in which they should be used, but in general any action can be repeated if required.  Note that if the program is stopped and re-started it is not necessary to repeat any actions already carried out (unless, for example, an AC database has been changed), because all the information about the matching process is held in the 
+CTL.  
+
+An action is activated by pressing the corresponding letter or digit key.  Upper or lower case letters can be used, and the Enter key should not be pressed - the action will be carried out immediately the letter or digit key is pressed, even if nothing appears on the screen for a while.  
+
+The actions should typically be carried out in the following order (which is the order in which the options are presented on-screen, in two columns):  
+
+H:  show Help text (optional)
+	Press the Enter key to scroll down one line, space bar to scroll down one screen-full, letter Q to quit.  
+
+O:  change database Options (optional)
+	This can optionally be used to change the database connection details already entered, typically to increase the record limits.  
+	
+E:  Empty comparison database (essential)
+	This discards all the previously imported records and comparison information:  you MUST use this before you import the first of the two Annual Checklists for comparison, and you must NOT use it again unless you want to clear the
+	effect of previous operations and start afresh.  
+	
+T:  Test AC edition (optional)
+	First, you will be asked which Annual Checklist edition you want to test.  Then you will have the choice of various tests.  These tests have no effect on the import, comparison and LSID-issuing processes.  
+
+I:  Import AC edition (essential)
+	First, you will be asked which Annual Checklist edition you want to import.  This may take significant time (approximately 15 minutes per edition), especially when the limits (for testing Taxon Matcher) are increased or removed.  You need to import both of the editions which have been specified in the config file.  
+
+C:  Compare AC editions (essential)
+	You must have already imported both AC editions.  
+
+	In this step, LSID values are obtained copied from the older AC edition into the comparison database.  Then LSIDs are created for the newer AC edition and stored in the comparison database.  Depending on whether the taxa in the newer edition match taxa in the older edition or not, the old LSIDs are re-used or new ones are issued.  Note that even re-used LSIDs are given a new "edition" field (":ac2009" is changed to ":ac2010" for example).  
+	
+	This may take significant time, especially when the limits are increased or removed.  
+
+S:  comparison Statistics and tests
+	(incorrect at present)
+
+A:  Add LSIDs to AC edition (essential)
+	The LSIDs that have been created for the newer AC edition are copied from the comparison database into the AC database.  This and action R are the only actions which actually change an AC database in any way.  
+
+L:  test LSIDs in AC edition
+	(to be completed)
+
+R:  Remove LSIDs from AC edition (optional, may be redundant)
+	This function was provided to allow databases with LSIDs to be converted back for testing with old versions of the AC user interface which did not allow LSIDs to be present.  It is probably not needed now.  
+
+Q:  Quit program
+
+The essential steps to complete the addtion of LSIDs are E, I 1, I 2, C and A.  
+
+Many of the actions cause SQL statements to be executed on the database server.  The SQL statements are timed and recorded in the log file.  In some cases the output tables resulting from their execution are displayed.  
+
+Note that you do not have to complete all the required operations in one run of the program.  You can Quit from one run, start the program again later, and carry on from where you left off.  Everything is remembered from one run to the next, because the information is stored in the comparison database (CoLTTC).  
+
+Taxon Matcher program options
+-----------------------------
+
+Some options can be set before running the program, by editing the configuration file TaxonMatcher.config.  Options can also be changed suring a program run.  
+
+If the "O" option is chosen to change options, the program displays a menu referring to several groups of options.  Each question can be answered by just pressing the Enter key, if the default value shown in square brackets is correct.  Alternatively, a different value can be typed in.  
+
+The options include database connection details.  The user name and password are those required by the MySQL database server software (not the user name and password used for logging into the computer).  
+
+Three databases are referred to, using the "data source names" (DSNs) set up previously.  The first two of them are the two Annual Checklist (AC) "editions" to be compared.  The first is the previous one (2009 at the time of writing), which already contains LSIDs, and the second is the new one, to which LSIDs will be attached.  The "Cumulative Taxon List" or comparison database (CTL or CoLTTC) is the database which is built to assist in the comparison of the two editions and the matching of the taxa they contain.  
+
+The number of records which are allowed to be read from the databases and the number which are allowed to be displayed are subject to limits which prevent excessive time being wasted during testing.  These limits can be increased;  "0" (zero) is used to remove the limit.  
+
+Error messages and how to fix them
+----------------------------------
+
+- If the program seems to crash and nothing happens after a period of time, or you realise you need to change something, try pressing Ctrl-C.  You may need to do this twice.  
+
+- If you get an error message that includes something similar to 
+	"... Error writing file '/tmp/MYH3zEhJ' (Errcode: 28) (SQL-HY000) ...",
+(a MySQL Error 28), you have run out of disc space on the server for storing a temporary file.  The solution will be to make more space available, or specify that the temporary file should be stored on a different disc partition.  
+
+- If the program seems to freeze while performing an SQL statement, it is possible that it has run out of disc space on the server for storing the database.  The solution is as above.  
+
+- If you get the error message 
+	"*** SQL failed: Lost connection to MySQL server during query"
+there might be a variety of causes.  Look at the log file to check which SQL statement was being executed.  One cause might be running out of disc space, which occurred for example during an attempt to convert the comparison database's Taxon table to MyISAM, required for Luvie running MySQL on an Access back-end.  
+
+- If after the Taxon Matcher message 
+	"Connecting to the database "CoL2008AC" ...", 
+you get the Perl error message 
+	"install_driver(ODBC) failed: Can't locate DBD/ODBC.pm in @INC", 
+followed by several more lines of information, an ODBC driver for Perl needs to be installed.
+
+- If you get a Perl error message that includes something similar to 
+	"... [Microsoft][ODBC Driver Manager] Data source name not found 
+	and no default driver specified (SQL-IM002) ...", 
+ one or more of the necessary ODBC database connections have not been set up.  (This may occur if you decide to change the name of the database you are using and forget to set up a new ODBC data source name to refer to it.)  
+ 
+ - If you get a Perl error message that includes something similar to 
+	" Can't locate <module>.pm in @INC", 
+followed by several more lines of information, this means that the specified module, which is needed by the Taxon Matcher program, cannot be located.  All the modules used by Taxon Matcher were already installed on my test machines, but you may get this error if a module has not been installed.  Perl (from ActiveState) comes with a Perl Package Manager, which can be started from the Start menu following Start / All Programs / ActivePerl / Perl Package Manager, or can be started from the Command Prompt using the command "ppm".  Choose View / All Packages (or click on the icon "View all packages"), select the module required, right-click on it and click on the Install button which pops up.  Then choose File / Run Marked Actions or click on the green arrow icon "Run marked actions", then exit after the module has been installed.  
+
+Notes
+-----
+
+For the user:
+
+A new LSID is issued in the following situations:
+- In the scientific_names table in AC2008, the infraspecies_marker was empty, resulting in a double space in the concatenated scientific name.  
+- In the scientific_names table in AC2009, the infraspecies_marker was null, which did not result in a double space, 
+resulting in non-matching names and hence a new LSID.  
+
+The names for a taxon are ordered (within the concatNames field) in order of 
+(i) sp2000_status_id (thus the accepted name appears first) and 
+(ii) alphabetically.  
+The length of this string occasionally exceeds 10,000 characters, but does not exceed 15,000 (which I have set as the current limit).  
+
+1,191,357 species-level taxa were detected in CoL2008AC
+1,218,387 species-level taxa were detected in col2009v10
+
+The name_code values are stored in the CoLTTC Taxon table, in case they are needed for debugging any unexpected behaviour, but they are not used in the comparison.  
+
+Data which is used in the taxon comparisons:  
+
+The exact choice of data which is used can now be changed easily.  Authority names or infraspecific rank markers could be excluded.  This may produce a greater number of matches, possibly useful during initial testing.  
+
+In addition to scientific names, the other data which is checked when matching taxa is:
+- common names (including language and country)
+
+Data which is not currently checked when matching taxa:  
+- distribution
+- families
+- scientific_names:  web_site, comment, scutiny_date
+- references
+- specialists (persons responsible for scrutiny?)
+- databases (the GSDs which supplied the taxon - this should be used when matching!)
+
+For the program developer: 
+
+Check whether any separator characters (such as ";") appear in names or author strings. 
+
+Check whether any unexpected characters in data fields might cause problems (e.g. "&" and diacritics in author strings)
+
+It may be possible to connect via ODBC (i) without specifying a database, and (ii) without having to set up DSNs.  Both these facilities would make it more convenient for the user.  See http://www.easysoft.com/developer/languages/perl/dbd_odbc_tutorial_part_1.html
+
+It might be possible to avoid the need for separate SQL statements to collect data such as common names in a temporary table and then to copy them to the main Taxon table, by using a "correlated subquery" in the SELECT.  See http://dev.mysql.com/doc/refman/5.0/en/update.html
+
+Quality tests:
+
+- Check for duplicated records in scientific_names and taxa tables (e.g. name_code="Dip-58124")
+- Check for genus names beginning with non-letters
+- then subdivide into those beginning with valid ("+ " and "x") and invalid ("?", "(?)") non-letters
+- Check for genus names with a trailing period (".")
+- Check for genus names containing unexpected characters (e.g. "(" and ")")
+
+Appendix I: Installing a MySQL database
+=======================================
+
+This is basically a log of the steps I performed to set up copies of the 2008, 2009 and 2010 Annual Checklists on a database server in Cardiff.  The following information is not required for running Taxon Matcher, unless you have to set up the Annual Checklist databases.  
+
+I(a):  Installing a MySQL database from an SQL dump
+---------------------------------------------------
+
+Download a file which contains an SQL dump of the Annual Checklist MySQL database.  This is the preferred method because the compressed file is smaller, presumably because no indexes are included.  This method was used for AC 2009 v.10 (file 'col2009v10 20081212 1011.zip') and AC 2010 v.11 (file 'CoL2010acV11_LSIDNull.zip').  
+
+The following operations need to be carried out on the database server.  Richard used biodiversity.cs.cf.ac.uk, which is a Linux server.  If using a Windows MySQL server, one would use a Command Prompt window, and slight modifications to the following commands might be needed.  
+
+At a shell command prompt, in some suitable directory to hold the unzipped database:  
+List the name and size of the contents of the zip file (the apostrophes allow the command to cope with file names containing blanks): 
+	unzip -l 'CoL2010acV11_LSIDNull.zip'
+Test zip file for integrity: 
+	unzip -t 'CoL2010acV11_LSIDNull.zip'
+Unzip the archive (if you have 1.5 Gb available): 
+	unzip 'CoL2010acV11_LSIDNull.zip'
+Create the database (with the name given in the .sql file) and populate the database tables:
+	mysql -p < CoL2010acV12_01Feb2010.sql > CoL2010acV12_01Feb2010.tab
+(assuming you don't need to specify a MySQL user name).  This creation run needs over 2 Gb free disc space for working purposes (most is freed again when the indexing has been completed), and will take a while to run, during which no output is displayed.  
+
+Notes:
+
+1. The whole process took about 20 minutes.  Running the SQL file takes about 15 min on Biodiversity, and would probably be faster if index creation is turned off while the INSERT statements are being processed, building the indexes afterwards, using ALTER TABLE ... DISABLE KEYS; and ALTER TABLE ... ENABLE KEYS;  However, 15 minutes is not unreasonable.  
+
+2.  Apparently no problem with the character set used in the SQL, names like "Caña Fístula" appear OK [which is not the case in this editor in Windows!].  Interestingly this name was retrieved using:  
+	select * from common_names where common_name like 'Can%';
+
+I(b): Installing a MySQL database from a compressed table archive
+-----------------------------------------------------------------
+
+An alternative is to download a larger archive ('col2009v10.zip' in 2009) containing the actual MySQL table files, in which case just test and unzip directly into a MySQL database directory, following appropriately modified versions of the first few instructions above.  
+
+Because the following process does not actually invoke MySQL to create the MySQL database, it may be necessary to use a MySQL client (such as MySQL Query Browser) to first create it by issuing an SQL command such as:
+	create database col2009v11;	
+
+17 January 2009
+
+The AC 2009 v.11 was supplied and downloaded as a .rar archive.  The following commands are needed to install it:  
+- Test the archive for integrity: 
+	unrar t col2009v11.rar
+- Copy the archive to the MySQL database directory and test it again:  
+	sudo su
+	cp -a col2009v11.rar /var/lib/mysql/
+	cd /var/lib/mysql
+	unrar t col2009v11.rar
+- Unzip the archive into the database sub-directory: 
+	unrar x col2009v11.rar
+	(This worked for me, but if it should fail because the sub-directory 
+	already exists, try:)
+	cd col2009v11
+	unrar e ../col2009v11.rar
+- Change the files ownership:  
+	chown -R mysql:mysql /var/lib/mysql/col2009v11
+	exit
+
+I(c): Test the newly installed database
+---------------------------------------
+
+Quick tests (using a MySQL client such as MySQL Query Browser): 
+
+	select * from `databases`;
+This shows that there are records from 65 databases (2009), 78 databases (2010).  
+
+	select * from scientific_names where genus = 'Abrus';
+This produces 62 name records (from ILDIS database v.10.01)  
+
+To count the number of accepted species names and infraspecific taxa:  
+	select infraspecies_marker, count(*) from scientific_names
+		where is_accepted_name = 1
+		group by infraspecies_marker with rollup;
+
+To count the number of accepted taxa at all ranks:  
+	select taxon, count(*) from taxa
+		where is_accepted_name = 1
+		group by taxon with rollup;
+
+Appendix II: Recent changes in Taxon Matcher
+============================================
+
+Version 0.20, 5 January 2009:
+- default values for various parameters for testing purposes
+- default names for the Cumulative Taxon List (CTL, formerly TTC), which can be changed, to permit easier testing by different people (Richard's development copy and Yuri's test copy access different databases)
+
+Version 0.21, 9 January 2009:
+- Cumulative Taxon List table indexed
+- test retrievals implemented
+- full data imported for species-level taxon comparisons (see Notes)
+
+This section is currently out-of-date. 
+
+Appendix III: Taxon Matcher SQL commands
+========================================
+
+These are the SQL commands which are actually issued.  This section is currently out-of-date.  Please refer to the Taxon Matcher program code.  
+
+1. To create the CoLTTC (Taxon Time-Capsule) database
+	create database CoLTTC;
+	drop table Taxon;
+	create table if not exists Taxon
+		(id INT AUTO_INCREMENT UNIQUE NOT NULL,
+		edition VARCHAR(6) NOT NULL,
+		editionId int(10) unsigned NOT NULL,
+		lsid VARCHAR(78),
+		concatNames text,
+		concatData text);
+	delete from Taxon;
+	insert into Taxon (edition, editionId, concatNames)
+		select 'ac2008', record_id, concat(name, '|') 
+		from CoL2008AC.taxa 
+		WHERE taxon = 'Species' and is_accepted_name = 1 
+		limit 1000;
+	update ***;  # for synonyms
+	update ***;  # for higher taxa
+	# Repeat for another edition
+	create index ***;
+
+2. To add LSIDs to the AC database
+To create the 'lsid' field:
+	ALTER TABLE `taxa` ADD COLUMN `lsid` VARCHAR(78) AFTER `record_id`;
+To insert LSID values into this field:
+(i) Version used in 2008 when no previous LSIDs existed:
+	
+(ii) Version used after 2008 when previous LSIDs exist:
+	UPDATE `taxa` 
+	SET `lsid`=CONCAT('urn:lsid:catalogueoflife.org:taxon:', 
+	UUID(), ':ac2009') 
+	WHERE `is_accepted_name`=1 AND ***=CoLTTC.editionId 
+	AND CoLTTC.edition='ac2009';
+
+If for any reason these commands need to be repeated, then it might be necessary to remove the lsid field as follows before adding it back in again:
+	ALTER TABLE `taxa` DROP COLUMN `lsid`;
+You can test that the UPDATE command has worked using something like:
+	SELECT * FROM taxa WHERE name LIKE "Pieris%";
+
+Appendix IV:  Software installed on Frank's and Yuri's machines
+===============================================================
+
+In order to support the use of Taxon Matcher in Windows XP, the following software was installed on the machines used by Frank Bisby and Yuri Roskov in Reading on 22 December 2008.  
+
+The software packages etc. were saved in My Documents\LSIDMatcher (the original name for the "Taxon Matcher" program was "LSID Matcher").  
+
+- ActiveState Perl (version 5.10.0.1004) 
+
+- MySQL ODBC connector (mysql-connector-odbc-3.51.27-win32.msi)
+
+- MySQL Query Browser ("MySQL GUI Tools" version 5.0-r15)
+		
+- PuTTY (used by Richard for testing, not needed for running Taxon Matcher)
